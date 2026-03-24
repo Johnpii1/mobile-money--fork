@@ -1,8 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import { transactionRoutes } from './routes/transactions';
 import { bulkRoutes } from './routes/bulk';
 import { transactionDisputeRoutes, disputeRoutes } from './routes/disputes';
@@ -10,8 +10,6 @@ import { errorHandler } from './middleware/errorHandler';
 import { connectRedis, redisClient } from './config/redis';
 import { pool } from './config/database';
 import { globalTimeout, haltOnTimedout, timeoutErrorHandler } from './middleware/timeout';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +25,20 @@ app.use(cors());
 app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+/**
+ * @openapi
+ * /healthz:
+ *   get:
+ *     summary: Liveness probe for Kubernetes
+ *     description: Checks if the application is alive
+ *     responses:
+ *       200:
+ *         description: Application is alive
+ */
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 /**
