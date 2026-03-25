@@ -32,9 +32,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Rate limiter
+// Rate limiter configuration
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'); // 15 minutes
+const RATE_LIMIT_MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100');
+
 const limiter = rateLimit({
-  windowMs: RATE_LIMIT_WINDOW_MS, // 15 minutes
+  windowMs: RATE_LIMIT_WINDOW_MS,
   max: RATE_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
@@ -134,7 +137,6 @@ connectRedis()
     console.error("Failed to connect to Redis:", err);
     console.warn("Distributed locks will not be available");
   });
-}
 
 // Initialize queue dashboard
 const queueRouter = createQueueDashboard();

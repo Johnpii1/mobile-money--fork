@@ -77,44 +77,41 @@ export class AirtelService {
    * REQUEST PAYMENT (COLLECTION)
    * =========================
    */
-  async requestPayment({
-    amount,
-    phoneNumber,
-    reference,
-  }: {
-    amount: number;
-    phoneNumber: string;
-    reference: string;
-  }) {
+  async requestPayment(phoneNumber: string, amount: string) {
     const token = await this.authenticate();
+    const reference = `AIRTEL-${Date.now()}`;
 
     return this.withRetry(async () => {
-      const response = await this.client.post(
-        "/merchant/v1/payments/",
-        {
-          reference,
-          subscriber: {
-            country: "NG",
-            currency: "NGN",
-            msisdn: phoneNumber,
+      try {
+        const response = await this.client.post(
+          "/merchant/v1/payments/",
+          {
+            reference,
+            subscriber: {
+              country: "NG",
+              currency: "NGN",
+              msisdn: phoneNumber,
+            },
+            transaction: {
+              amount: parseFloat(amount),
+              country: "NG",
+              currency: "NGN",
+              id: reference,
+            },
           },
-          transaction: {
-            amount,
-            country: "NG",
-            currency: "NGN",
-            id: reference,
-          },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Country": "NG",
-            "X-Currency": "NGN",
-          },
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-Country": "NG",
+              "X-Currency": "NGN",
+            },
+          }
+        );
 
-      return response.data;
+        return { success: true, data: response.data };
+      } catch (error) {
+        return { success: false, error };
+      }
     });
   }
 
@@ -147,40 +144,37 @@ export class AirtelService {
    * PAYOUT (DISBURSEMENT)
    * =========================
    */
-  async payout({
-    amount,
-    phoneNumber,
-    reference,
-  }: {
-    amount: number;
-    phoneNumber: string;
-    reference: string;
-  }) {
+  async sendPayout(phoneNumber: string, amount: string) {
     const token = await this.authenticate();
+    const reference = `AIRTEL-PAYOUT-${Date.now()}`;
 
     return this.withRetry(async () => {
-      const response = await this.client.post(
-        "/standard/v1/disbursements/",
-        {
-          reference,
-          payee: {
-            msisdn: phoneNumber,
+      try {
+        const response = await this.client.post(
+          "/standard/v1/disbursements/",
+          {
+            reference,
+            payee: {
+              msisdn: phoneNumber,
+            },
+            transaction: {
+              amount: parseFloat(amount),
+              id: reference,
+            },
           },
-          transaction: {
-            amount,
-            id: reference,
-          },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Country": "NG",
-            "X-Currency": "NGN",
-          },
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-Country": "NG",
+              "X-Currency": "NGN",
+            },
+          }
+        );
 
-      return response.data;
+        return { success: true, data: response.data };
+      } catch (error) {
+        return { success: false, error };
+      }
     });
   }
 }

@@ -179,13 +179,12 @@ if (transaction.status === TransactionStatus.Pending) {
   const diffMinutes = (now - createdAt) / (1000 * 60);
 
   if (diffMinutes > timeoutMinutes) {
-    await transactionModel.updateStatus(id, TransactionStatus.Failed, {
-      reason: "Transaction timeout",
-    });
+    await transactionModel.updateStatus(id, TransactionStatus.Failed);
 
     console.log("Transaction timed out (on fetch)", {
       transactionId: id,
       timeoutMinutes,
+      reason: "Transaction timeout",
     });
 
     transaction.status = TransactionStatus.Failed;
