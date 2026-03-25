@@ -34,8 +34,10 @@ const PORT = process.env.PORT || 3000;
 
 // Rate limiter
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: RATE_LIMIT_WINDOW_MS, // 15 minutes
+  max: RATE_LIMIT_MAX_REQUESTS,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // Middleware
@@ -140,5 +142,5 @@ app.use("/admin/queues", queueRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  startJobs();
+  console.log(`Rate limit: ${RATE_LIMIT_MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW_MS / 1000}s`);
 });
