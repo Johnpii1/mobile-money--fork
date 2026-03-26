@@ -32,6 +32,7 @@ import {
   SESSION_TTL_SECONDS,
 } from "./config/redis";
 import { createCorsOptions } from "./config/cors";
+import { createOAuthRouter } from "./auth/oauth";
 import { pool } from "./config/database";
 import {
   globalTimeout,
@@ -70,28 +71,31 @@ app.use(metricsMiddleware);
 app.use(helmet());
 
 // Compression middleware
-if (process.env.COMPRESSION_ENABLED !== 'false') {
-  app.use(compression({
-    threshold: parseInt(process.env.COMPRESSION_THRESHOLD || '1024'),
-    level: parseInt(process.env.COMPRESSION_LEVEL || '6'),
-    filter: (req, res) => {
-      if (req.headers['x-no-compression']) {
-        return false;
-      }
-      // Don't compress already compressed content types
-      const contentType = res.getHeader('content-type') as string;
-      if (contentType && (
-        contentType.includes('image/') ||
-        contentType.includes('video/') ||
-        contentType.includes('audio/') ||
-        contentType.includes('application/zip') ||
-        contentType.includes('application/gzip')
-      )) {
-        return false;
-      }
-      return compression.filter(req, res);
-    }
-  }));
+if (process.env.COMPRESSION_ENABLED !== "false") {
+  app.use(
+    compression({
+      threshold: parseInt(process.env.COMPRESSION_THRESHOLD || "1024"),
+      level: parseInt(process.env.COMPRESSION_LEVEL || "6"),
+      filter: (req, res) => {
+        if (req.headers["x-no-compression"]) {
+          return false;
+        }
+        // Don't compress already compressed content types
+        const contentType = res.getHeader("content-type") as string;
+        if (
+          contentType &&
+          (contentType.includes("image/") ||
+            contentType.includes("video/") ||
+            contentType.includes("audio/") ||
+            contentType.includes("application/zip") ||
+            contentType.includes("application/gzip"))
+        ) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }),
+  );
 }
 
 app.use(cors(createCorsOptions()));
@@ -175,6 +179,7 @@ app.use(haltOnTimedout);
 
 app.use(apiVersionMiddleware);
 app.use(validateVersionMiddleware);
+app.use("/oauth", createOAuthRouter());
 
 app.use("/api/v1/transactions", transactionRoutesV1);
 app.use("/api/v1/transactions", transactionDisputeRoutesV1);

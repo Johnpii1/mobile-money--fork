@@ -3,6 +3,7 @@ import { authenticateToken } from "../middleware/auth";
 import multer, { MulterError } from "multer";
 import csvParser from "csv-parser";
 import { Readable } from "stream";
+import { authenticateToken } from "../middleware/auth";
 import { TransactionModel, TransactionStatus } from "../models/transaction";
 import { MobileMoneyService } from "../services/mobilemoney/mobileMoneyService";
 import { StellarService } from "../services/stellar/stellarService";
@@ -170,10 +171,14 @@ async function processJob(jobId: string, rows: CsvRow[]): Promise<void> {
           transaction.id,
           TransactionStatus.Completed,
         );
-        await notifyTransactionWebhook(transaction.id, "transaction.completed", {
-          transactionModel,
-          webhookService,
-        });
+        await notifyTransactionWebhook(
+          transaction.id,
+          "transaction.completed",
+          {
+            transactionModel,
+            webhookService,
+          },
+        );
 
         job.succeeded++;
       } catch (error) {

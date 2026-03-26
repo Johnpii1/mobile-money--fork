@@ -55,7 +55,7 @@ transactionRoutes.get(
   authenticateToken,
   TimeoutPresets.quick,
   haltOnTimedout,
-  getTransactionHandler
+  getTransactionHandler,
 );
 
 transactionRoutes.post(

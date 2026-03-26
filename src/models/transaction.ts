@@ -86,7 +86,9 @@ export interface Transaction {
   webhook_last_attempt_at?: Date | null;
   webhook_delivered_at?: Date | null;
   webhook_last_error?: string | null;
-  metadata: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  userId?: string | null;
+  retryCount?: number;
   createdAt: Date;
   updatedAt?: Date | null;
 }
@@ -115,29 +117,40 @@ export interface WebhookDeliveryUpdate {
 
 /** Map a pg row (snake_case) to the Transaction interface */
 export function mapTransactionRow(
-  row: Record<string, unknown> | undefined | null,
+  row: Record<string, unknown> | Transaction | undefined | null,
 ): Transaction | null {
   if (!row) return null;
-  const created = row.created_at ?? row.createdAt;
+  const dbRow = row as Record<string, unknown>;
+  const created = dbRow.created_at ?? row.createdAt;
   return {
     id: String(row.id),
-    referenceNumber: String(row.reference_number ?? row.referenceNumber ?? ""),
+    referenceNumber: String(
+      dbRow.reference_number ?? row.referenceNumber ?? "",
+    ),
     type: (row.type as Transaction["type"]) || "deposit",
     amount: String(row.amount ?? ""),
-    phoneNumber: String(row.phone_number ?? row.phoneNumber ?? ""),
+    phoneNumber: String(dbRow.phone_number ?? row.phoneNumber ?? ""),
     provider: String(row.provider ?? ""),
-    stellarAddress: String(row.stellar_address ?? row.stellarAddress ?? ""),
+    stellarAddress: String(dbRow.stellar_address ?? row.stellarAddress ?? ""),
     status: row.status as TransactionStatus,
     tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
     notes:
-      row.notes != null && row.notes !== ""
-        ? String(row.notes)
-        : undefined,
+      row.notes != null && row.notes !== "" ? String(row.notes) : undefined,
     admin_notes:
       row.admin_notes != null && row.admin_notes !== ""
         ? String(row.admin_notes)
         : undefined,
-    retryCount: Number(row.retry_count ?? 0),
+    metadata:
+      row.metadata &&
+      typeof row.metadata === "object" &&
+      !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : {},
+    userId:
+      dbRow.user_id != null || row.userId != null
+        ? String(dbRow.user_id ?? row.userId)
+        : null,
+    retryCount: Number(dbRow.retry_count ?? row.retryCount ?? 0),
     createdAt:
       created instanceof Date ? created : new Date(String(created ?? "")),
   };
@@ -189,10 +202,15 @@ export class TransactionModel {
   }
 
   /** Paginated list, newest first. `limit` is capped at 100. */
-  async list(limit = 50, offset = 0, startDate?: string, endDate?: string): Promise<Transaction[]> {
+  async list(
+    limit = 50,
+    offset = 0,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<Transaction[]> {
     const capped = Math.min(Math.max(limit, 1), 100);
     const off = Math.max(offset, 0);
-    
+
     let query = "SELECT * FROM transactions WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
@@ -337,7 +355,7 @@ export class TransactionModel {
          AND status = 'completed'
          AND created_at >= $2
        ORDER BY created_at DESC`,
-      [userId, TransactionStatus.Completed, since],
+      [userId, since],
     );
     return result.rows
       .map((r) => mapTransactionRow(r))
@@ -346,7 +364,7 @@ export class TransactionModel {
 
   /** Increments retry_count after a failed transient attempt (before the next try). */
   async incrementRetryCount(id: string): Promise<number> {
-    const r = await pool.query(
+    const result = await pool.query(
       `UPDATE transactions
        SET retry_count = retry_count + 1,
            updated_at = CURRENT_TIMESTAMP
@@ -355,7 +373,7 @@ export class TransactionModel {
       [id],
     );
 
-    return result.rows;
+    return Number(result.rows[0]?.retry_count ?? 0);
   }
 
   async updateNotes(id: string, notes: string): Promise<Transaction | null> {
@@ -551,6 +569,24 @@ export class TransactionModel {
     );
   }
 
+  async releaseAllExpiredIdempotencyKeys(): Promise<number> {
+    const result = await pool.query<{ released: number }>(
+      `WITH updated AS (
+         UPDATE transactions
+         SET idempotency_key = NULL,
+             idempotency_expires_at = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE idempotency_key IS NOT NULL
+           AND idempotency_expires_at IS NOT NULL
+           AND idempotency_expires_at <= CURRENT_TIMESTAMP
+         RETURNING 1
+       )
+       SELECT COUNT(*)::int AS released FROM updated`,
+    );
+
+    return result?.rows?.[0]?.released || 0;
+  }
+
   async findActiveByIdempotencyKey(
     idempotencyKey: string,
   ): Promise<Transaction | null> {
@@ -571,7 +607,8 @@ export class TransactionModel {
   }
 
   async countByStatuses(statuses: TransactionStatus[]): Promise<number> {
-    const validStatuses = statuses.length > 0 ? statuses : Object.values(TransactionStatus);
+    const validStatuses =
+      statuses.length > 0 ? statuses : Object.values(TransactionStatus);
     const result = await pool.query<{ total: number }>(
       `SELECT COUNT(*)::int AS total
        FROM transactions
@@ -589,7 +626,8 @@ export class TransactionModel {
   ): Promise<Transaction[]> {
     const capped = Math.min(Math.max(limit, 1), 1000);
     const off = Math.max(offset, 0);
-    const validStatuses = statuses.length > 0 ? statuses : Object.values(TransactionStatus);
+    const validStatuses =
+      statuses.length > 0 ? statuses : Object.values(TransactionStatus);
 
     const result = await pool.query<Transaction>(
       `SELECT ${TRANSACTION_SELECT_COLUMNS}
