@@ -1,9 +1,18 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 
 /**
  * API Versioning Configuration
  * Supports multiple API versions with backward compatibility
  */
+
+export const setApiVersion = (version: string): RequestHandler => (
+  req,
+  _res,
+  next,
+) => {
+  (req as VersionedRequest).apiVersion = version;
+  next();
+};
 
 export interface VersionedRequest extends Request {
   apiVersion: string;
@@ -19,22 +28,20 @@ export const DEPRECATED_VERSIONS = [];
  * Middleware: Extract API version from URL or Accept header
  * Priority: URL path > Accept header > default (v1)
  */
-export const apiVersionMiddleware = (
-  req: VersionedRequest,
-  res: Response,
-  next: NextFunction
-) => {
+export const apiVersionMiddleware: RequestHandler = (req, res, next) => {
+  const versionedReq = req as VersionedRequest;
+
   try {
     let version = CURRENT_VERSION;
 
     // 1. Check URL path for version (e.g., /api/v1/transactions)
-    const pathMatch = req.path.match(/^\/api\/(v\d+)\//);
+    const pathMatch = versionedReq.path.match(/^\/api\/(v\d+)\//);
     if (pathMatch) {
       version = pathMatch[1];
     }
 
     // 2. Check Accept header (e.g., Accept: application/vnd.api+json;version=v1)
-    const acceptHeader = req.get("accept");
+    const acceptHeader = versionedReq.get("accept");
     if (acceptHeader && acceptHeader.includes("version=")) {
       const versionMatch = acceptHeader.match(/version=(v\d+)/);
       if (versionMatch) {
@@ -43,8 +50,8 @@ export const apiVersionMiddleware = (
     }
 
     // Store version on request object
-    req.apiVersion = version;
-    req.requestedVersion = version;
+    versionedReq.apiVersion = version;
+    versionedReq.requestedVersion = version;
 
     // Add version to response headers
     res.setHeader("API-Version", version);
@@ -65,12 +72,9 @@ export const apiVersionMiddleware = (
 /**
  * Middleware: Validate requested API version is supported
  */
-export const validateVersionMiddleware = (
-  req: VersionedRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  const { apiVersion } = req;
+export const validateVersionMiddleware: RequestHandler = (req, res, next) => {
+  const versionedReq = req as VersionedRequest;
+  const { apiVersion } = versionedReq;
 
   if (!SUPPORTED_VERSIONS.includes(apiVersion)) {
     return res.status(400).json({
@@ -99,8 +103,8 @@ export const validateVersionMiddleware = (
 /**
  * Helper: Get version from request
  */
-export const getApiVersion = (req: VersionedRequest): string => {
-  return req.apiVersion || CURRENT_VERSION;
+export const getApiVersion = (req: Request): string => {
+  return (req as VersionedRequest).apiVersion || CURRENT_VERSION;
 };
 
 /**

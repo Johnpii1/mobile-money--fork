@@ -15,7 +15,6 @@ import {
 import { validateTransaction } from "../middleware/validateTransaction";
 import { TimeoutPresets, haltOnTimedout } from "../middleware/timeout";
 import { authenticateToken } from "../middleware/auth";
-import { validateTransaction } from "../middleware/validateTransaction";
 
 export const transactionRoutes = Router();
 

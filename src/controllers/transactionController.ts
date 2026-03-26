@@ -8,8 +8,8 @@ import { lockManager, LockKeys } from "../utils/lock";
 import { TransactionLimitService } from "../services/transactionLimit/transactionLimitService";
 import { KYCService } from "../services/kyc/kycService";
 import { MobileMoneyProvider, validateProviderLimits } from "../config/providers";
-import {
 import type { TransactionJobData } from "../queue/transactionQueue";
+import {
   CancelTransactionResponse,
   LimitExceededErrorResponse,
   PhoneSearchResponse,

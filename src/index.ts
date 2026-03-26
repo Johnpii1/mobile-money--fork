@@ -129,7 +129,7 @@ app.use(
   }),
 );
 
-app.get("/health", (_req, res) => {
+app.get("/health", (_req: Request, res: Response) => {
   const body: HealthCheckResponse = {
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -137,7 +137,7 @@ app.get("/health", (_req, res) => {
   res.json(body);
 });
 
-app.get("/ready", async (_req, res) => {
+app.get("/ready", async (_req: Request, res: Response) => {
   const checks: Record<string, string> = { database: "down", redis: "down" };
   let allReady = true;
 
@@ -182,8 +182,9 @@ app.use("/api/v1/transactions/bulk", bulkRoutesV1);
 app.use("/api/v1/disputes", disputeRoutesV1);
 app.use("/api/v1/stats", statsRoutesV1);
 
-app.use("/api/transactions", (req: VersionedRequest, res, next) => {
-  req.apiVersion = "v1";
+const deprecatedApiV1Handler: express.RequestHandler = (req, res, next) => {
+  const versionedReq = req as VersionedRequest;
+  versionedReq.apiVersion = "v1";
   res.setHeader("API-Version", "v1");
   res.setHeader("Deprecation", "true");
   res.setHeader(
@@ -195,7 +196,9 @@ app.use("/api/transactions", (req: VersionedRequest, res, next) => {
     `https://example.com${req.originalUrl.replace("/api/", "/api/v1/")}`,
   );
   next();
-}, transactionRoutes);
+};
+
+app.use("/api/transactions", deprecatedApiV1Handler, transactionRoutes);
 app.use("/api/transactions", transactionDisputeRoutes);
 app.use("/api/transactions/bulk", bulkRoutes);
 app.use("/api/disputes", disputeRoutes);
