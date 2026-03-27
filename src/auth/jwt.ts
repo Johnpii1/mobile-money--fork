@@ -10,6 +10,20 @@ const JWT_EXPIRES_IN = "1h";
 const REFRESH_TOKEN_EXPIRES_IN = "7d";
 const refreshTokenFamilyModel = new RefreshTokenFamilyModel();
 
+export interface JWTImpersonationClaim {
+  active: true;
+  readOnly: true;
+  actorUserId: string;
+  actorRole: string;
+  targetUserId: string;
+  reason: string;
+  issuedAt: string;
+}
+
+interface GenerateTokenOptions {
+  expiresIn?: string | number;
+}
+
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -18,11 +32,10 @@ function getJwtSecret(): string {
   return secret;
 }
 
-
-
 export interface JWTPayload {
   userId: string;
   email: string;
+  impersonation?: JWTImpersonationClaim;
   iat?: number;
   exp?: number;
 }
@@ -44,9 +57,10 @@ export interface RefreshTokenPayload {
  */
 export function generateToken(
   payload: Omit<JWTPayload, "iat" | "exp">,
+  options?: GenerateTokenOptions,
 ): string {
   return jwt.sign(payload, getJwtSecret(), {
-    expiresIn: JWT_EXPIRES_IN,
+    expiresIn: options?.expiresIn ?? JWT_EXPIRES_IN,
   });
 }
 
