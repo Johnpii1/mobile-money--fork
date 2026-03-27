@@ -4,9 +4,7 @@
 -- Transactions table
 ALTER TABLE transactions 
   ALTER COLUMN phone_number TYPE TEXT,
-  ALTER COLUMN stellar_address TYPE TEXT,
-  ALTER COLUMN notes TYPE TEXT,
-  ALTER COLUMN admin_notes TYPE TEXT;
+  ALTER COLUMN stellar_address TYPE TEXT;
 
 -- Users table
 ALTER TABLE users 
