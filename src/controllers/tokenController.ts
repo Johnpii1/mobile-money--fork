@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { pool } from "../config/database";
 
 export const tokenController = {
+    // List all active refresh tokens for current user
   findAll: async (req: Request, res: Response) => {
     const userId = (req as any).user.id || (req as any).user_id;
 
@@ -18,4 +19,5 @@ export const tokenController = {
 
     return result.rows;
   },
+
 };
