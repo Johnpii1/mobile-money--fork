@@ -136,7 +136,7 @@ export async function verifyRefreshToken(token: string): Promise<RefreshTokenPay
   if (!dbToken || dbToken.is_revoked) {
     // Revoke the whole family if reused
     if (decoded.familyId) {
-      await refreshTokenFamilyModel.revokeFamily(decoded.familyId);
+      await refreshTokenFamilyModel.revokeFamily(decoded.familyId, decoded.userId);
     }
     throw new Error("Refresh token reuse detected. All tokens in this chain are revoked. Please re-login.");
   }
