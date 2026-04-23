@@ -65,6 +65,7 @@ import sep24Router from "./stellar/sep24";
 import { createSep12Router } from "./stellar/sep12";
 import { createSep10Router } from "./stellar/sep10";
 import tomlRouter from "./routes/toml";
+import { startJobs } from "./jobs/scheduler";
 
 // 1. Import Sentry Middleware
 import { initSentry, sentryBreadcrumbMiddleware } from "./middleware/sentry";
@@ -299,6 +300,9 @@ async function initializeRuntime(): Promise<void> {
 
   const { createQueueDashboard } = await import("./queue/dashboard");
   app.use("/admin/queues", createQueueDashboard());
+
+  // Start scheduled jobs
+  startJobs();
 
   //
   const useHTTP2 = process.env.USE_HTTP2 === "true";
