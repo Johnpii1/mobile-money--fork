@@ -1,18 +1,15 @@
 import { Router, Request, Response } from 'express';
-import {
-  generateToken,
-  verifyToken,
-  JWTPayload,
-  generateRefreshToken,
-  verifyRefreshToken,
-} from '../auth/jwt';
-import {
-  authenticateUser,
-  getUserPermissions,
-} from '../services/userService';
+import { generateToken, verifyToken, JWTPayload, generateRefreshToken, verifyRefreshToken } from '../auth/jwt';
+import { createSSORouter } from '../auth/sso';
+import { enforceSSOForEmployees } from '../middleware/ssoEnforcement';
+import { tokenController } from '../controllers/tokenController';
 import { authenticateToken } from '../middleware/auth';
+import { authenticateUser, getUserPermissions } from '../services/userService';
 
 export const authRoutes = Router();
+
+// Mount SSO routes
+authRoutes.use('/sso', createSSORouter());
 
 /**
  * POST /api/auth/login
@@ -100,6 +97,27 @@ authRoutes.post('/refresh', async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * GET /api/auth/tokens
+ *
+ * List all active refresh token
+ */
+authRoutes.get("/tokens/active/:family_id", authenticateToken, tokenController.findAll);
+
+/**
+ * DELETE /api/auth/tokens
+ *
+ * Delete all refresh token
+ */ 
+authRoutes.delete("/tokens/revoke-all/:family_id", authenticateToken, tokenController.revokeAll);
+
+/**
+ * DELETE /api/auth/tokens
+ *
+ * Delete a specific refresh token
+ */ 
+authRoutes.delete("/tokens/:token_id/:family_id", authenticateToken, tokenController.revoke);
 
 /**
  * POST /api/auth/verify

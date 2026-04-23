@@ -6,6 +6,11 @@ import {
   validateDashboardConfig,
   DASHBOARD_CONFIG_VALIDATION_ERRORS,
 } from "../utils/dashboardConfig";
+import {
+  rateLimitExport,
+  rateLimitListQueries,
+  RATE_LIMIT_CONFIG,
+} from "../middleware/rateLimit";
 import { MobileMoneyService } from "../services/mobilemoney/mobileMoneyService";
 import { getQueueStats } from "../queue/transactionQueue";
 import { redisClient } from "../config/redis";
@@ -16,6 +21,12 @@ import {
   parseCSV,
   reconcileTransactions,
 } from "../services/csvReconciliation";
+import {
+  getTransactionResolutionPercentiles,
+  getDisputeResolutionPercentiles,
+  getTransactionResolutionTrends,
+  getDisputeResolutionTrends,
+} from "../services/metrics";
 import { dlqInspectorHandler } from "../queue/dlq";
 
 const router = Router();
@@ -163,6 +174,68 @@ const paginate = <T>(data: T[], page: number, limit: number) => {
 
 /**
  * =========================
+ * METRICS
+ * =========================
+ */
+
+// GET /api/admin/metrics/transactions/resolution
+router.get(
+  "/metrics/transactions/resolution",
+  requireAdmin,
+  logAdminAction("GET_TRANSACTION_RESOLUTION_METRICS"),
+  async (req: Request, res: Response) => {
+    try {
+      const daysBack = parseInt(req.query.days as string) || 30;
+      const metrics = await getTransactionResolutionPercentiles(daysBack);
+      const trends = await getTransactionResolutionTrends(7);
+
+      res.json({
+        metrics,
+        trends,
+        period: `${daysBack} days`,
+        sla_threshold_ms: 24 * 60 * 60 * 1000,
+        sla_threshold_hours: 24,
+      });
+    } catch (err) {
+      console.error("Error fetching transaction resolution metrics:", err);
+      res.status(500).json({
+        message: "Failed to retrieve transaction resolution metrics",
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  },
+);
+
+// GET /api/admin/metrics/disputes/resolution
+router.get(
+  "/metrics/disputes/resolution",
+  requireAdmin,
+  logAdminAction("GET_DISPUTE_RESOLUTION_METRICS"),
+  async (req: Request, res: Response) => {
+    try {
+      const daysBack = parseInt(req.query.days as string) || 30;
+      const metrics = await getDisputeResolutionPercentiles(daysBack);
+      const trends = await getDisputeResolutionTrends(7);
+
+      res.json({
+        metrics,
+        trends,
+        period: `${daysBack} days`,
+        sla_threshold_ms: 24 * 60 * 60 * 1000,
+        sla_threshold_hours: 24,
+      });
+    } catch (err) {
+      console.error("Error fetching dispute resolution metrics:", err);
+      res.status(500).json({
+        message: "Failed to retrieve dispute resolution metrics",
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  },
+);
+
+/**
+ * =========================
  * USERS
  * =========================
  */
@@ -171,6 +244,7 @@ const paginate = <T>(data: T[], page: number, limit: number) => {
 router.get(
   "/users",
   requireAdmin,
+  rateLimitListQueries,
   logAdminAction("LIST_USERS"),
   (req: Request, res: Response) => {
     const page = Number(req.query.page) || 1;
@@ -593,6 +667,7 @@ router.get(
 router.put(
   "/transactions/:id",
   requireAdmin,
+  rateLimitListQueries,
   logAdminAction("UPDATE_TRANSACTION"),
   (req: Request, res: Response) => {
     const tx = transactions.find((t) => t.id === req.params.id);
@@ -635,7 +710,7 @@ router.post(
   "/reconcile",
   requireAdmin,
   logAdminAction("CSV_RECONCILIATION"),
-  csvUpload.single("csv"),
+  csvUpload.single("csv") as any,
   async (req: Request, res: Response) => {
     try {
       if (!req.file) {
@@ -780,3 +855,6 @@ router.get(
     }
   },
 );
+
+export { router as adminRoutes };
+
