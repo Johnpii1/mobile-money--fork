@@ -11,6 +11,12 @@ import { executeWithCircuitBreaker } from "../../utils/circuitBreaker";
 import { pool } from "../../config/database";
 import { MonitoringService } from "../monitoringService";
 
+export type ProviderTransactionStatus =
+  | "completed"
+  | "failed"
+  | "pending"
+  | "unknown";
+
 interface MobileMoneyProvider {
   requestPayment(
     phoneNumber: string,
@@ -20,6 +26,9 @@ interface MobileMoneyProvider {
     phoneNumber: string,
     amount: string,
   ): Promise<{ success: boolean; data?: unknown; error?: unknown }>;
+  getTransactionStatus?(
+    referenceId: string,
+  ): Promise<{ status: ProviderTransactionStatus }>;
 }
 
 interface ProviderExecutionResult {
@@ -312,6 +321,25 @@ export class MobileMoneyService {
       "PROVIDER_ERROR",
       `Payout failed for provider '${providerKey}'`,
     );
+  }
+
+  /**
+   * Query a provider for the current status of a transaction.
+   * Returns 'unknown' if the provider does not support status checks or errors out.
+   */
+  async getTransactionStatus(
+    providerKey: string,
+    referenceId: string,
+  ): Promise<{ status: ProviderTransactionStatus }> {
+    const provider = this.providers.get(providerKey.toLowerCase());
+    if (!provider || typeof provider.getTransactionStatus !== "function") {
+      return { status: "unknown" };
+    }
+    try {
+      return await provider.getTransactionStatus(referenceId);
+    } catch {
+      return { status: "unknown" };
+    }
   }
 
   /**
