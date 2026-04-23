@@ -4,6 +4,7 @@ import { runCleanupJob } from "./cleanupJob";
 import { runReportJob } from "./reportJob";
 import { runStatusCheckJob } from "./statusCheckJob";
 import { runDisputeSlaJob } from "./disputeSlaJob";
+import { runSanctionSyncJob } from "./sanctionSyncJob";
 import { MonitoringService } from "../services/monitoringService";
 import { createPagerDutyService } from "../services/pagerDutyService";
 import { runProviderBalanceAlertJob } from "./balances";
