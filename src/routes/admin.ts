@@ -16,6 +16,7 @@ import { getQueueStats } from "../queue/transactionQueue";
 import { redisClient } from "../config/redis";
 import { checkReplicaHealth } from "../config/database";
 import { UserModel } from "../models/users";
+import { TransactionModel } from "../models/transaction";
 import multer from "multer";
 import {
   parseCSV,
@@ -73,7 +74,7 @@ interface AuthRequest extends Request {
  * Mock services (replace with real DB/services)
  */
 const users: User[] = [];
-const transactions: Transaction[] = [];
+const transactionModel = new TransactionModel();
 
 const isAdminRole = (role?: string) =>
   role === "admin" || role === "super-admin";
@@ -653,13 +654,35 @@ router.get(
   "/transactions",
   requireAdmin,
   logAdminAction("LIST_TRANSACTIONS"),
-  (req: Request, res: Response) => {
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
+  async (req: Request, res: Response) => {
+    try {
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 10;
+      const reference = req.query.reference as string | undefined;
 
-    const result = paginate(transactions, page, limit);
+      const offset = (page - 1) * limit;
 
-    res.json(result);
+      const filters: any = {};
+      if (reference) {
+        filters.referenceNumber = reference;
+      }
+
+      const transactions = await transactionModel.list(limit, offset, undefined, undefined, filters);
+      const total = await transactionModel.count(undefined, undefined, filters);
+
+      res.json({
+        data: transactions,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (err) {
+      console.error("Error listing transactions for admin:", err);
+      res.status(500).json({ error: "Failed to list transactions" });
+    }
   },
 );
 
@@ -669,16 +692,29 @@ router.put(
   requireAdmin,
   rateLimitListQueries,
   logAdminAction("UPDATE_TRANSACTION"),
-  (req: Request, res: Response) => {
-    const tx = transactions.find((t) => t.id === req.params.id);
+  async (req: Request, res: Response) => {
+    try {
+      const tx = await transactionModel.findById(req.params.id);
 
-    if (!tx) {
-      return res.status(404).json({ message: "Transaction not found" });
+      if (!tx) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // Basic update logic - in a real app this would be more specific
+      if (req.body.admin_notes) {
+        await transactionModel.updateAdminNotes(req.params.id, req.body.admin_notes);
+      }
+      
+      if (req.body.status) {
+        await transactionModel.updateStatus(req.params.id, req.body.status);
+      }
+
+      const updatedTx = await transactionModel.findById(req.params.id);
+      res.json({ message: "Transaction updated", transaction: updatedTx });
+    } catch (err) {
+      console.error("Error updating transaction:", err);
+      res.status(500).json({ error: "Failed to update transaction" });
     }
-
-    Object.assign(tx, req.body);
-
-    res.json({ message: "Transaction updated", transaction: tx });
   },
 );
 
@@ -953,6 +989,28 @@ router.get(
   <h2>Daily Breakdown</h2>
   <canvas id="chart" height="90"></canvas>
 </div>
+<div class="chart-box" style="margin-top: 24px;">
+  <h2>Transaction Search</h2>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <input type="text" id="txSearch" placeholder="Enter Transaction Reference..." style="flex:1;background:#0f172a;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:6px;">
+    <button onclick="searchTx()" style="background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;">Search</button>
+  </div>
+  <div id="txResults" style="font-size:0.85rem;">
+    <table style="width:100%;border-collapse:collapse;display:none;margin-top:10px;" id="txTable">
+      <thead>
+        <tr style="text-align:left;color:#94a3b8;border-bottom:1px solid #334155;">
+          <th style="padding:8px 4px;">Reference</th>
+          <th style="padding:8px 4px;">Type</th>
+          <th style="padding:8px 4px;">Amount</th>
+          <th style="padding:8px 4px;">Status</th>
+          <th style="padding:8px 4px;">Date</th>
+        </tr>
+      </thead>
+      <tbody id="txBody"></tbody>
+    </table>
+    <div id="txEmpty" style="color:#64748b;text-align:center;padding:20px;">Enter a reference number to search</div>
+  </div>
+</div>
 <div id="status"></div>
 <script>
 const fmt = (n) => '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -995,6 +1053,58 @@ async function load() {
     document.querySelector('.chart-box').innerHTML = '<div class="error">Failed to load data: ' + e.message + '</div>';
   }
 }
+
+async function searchTx() {
+  const ref = document.getElementById('txSearch').value.trim();
+  if (!ref) return;
+  
+  const table = document.getElementById('txTable');
+  const body = document.getElementById('txBody');
+  const empty = document.getElementById('txEmpty');
+  
+  empty.textContent = 'Searching...';
+  empty.style.display = 'block';
+  table.style.display = 'none';
+  
+  try {
+    const r = await fetch('/api/admin/transactions?reference=' + encodeURIComponent(ref), {credentials:'include'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const {data} = await r.json();
+    
+    if (!data || data.length === 0) {
+      empty.textContent = 'No transaction found with reference: ' + ref;
+      return;
+    }
+    
+    body.innerHTML = '';
+    data.forEach(tx => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid #1e293b';
+      const statusBg = tx.status === 'completed' ? 'rgba(52,211,153,.2)' : 
+                       tx.status === 'pending' ? 'rgba(250,204,21,.2)' : 
+                       tx.status === 'failed' ? 'rgba(248,113,113,.2)' : 'rgba(148,163,184,.2)';
+      const statusColor = tx.status === 'completed' ? '#34d399' : 
+                         tx.status === 'pending' ? '#fbbf24' : 
+                         tx.status === 'failed' ? '#f87171' : '#94a3b8';
+      
+      tr.innerHTML = \`
+        <td style="padding:12px 4px;font-family:monospace;color:#60a5fa">\${tx.referenceNumber}</td>
+        <td style="padding:12px 4px;text-transform:capitalize;">\${tx.type}</td>
+        <td style="padding:12px 4px;font-weight:600;">\${tx.amount}</td>
+        <td style="padding:12px 4px;"><span style="padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:600;background:\${statusBg};color:\${statusColor}">\${tx.status.toUpperCase()}</span></td>
+        <td style="padding:12px 4px;color:#64748b">\${new Date(tx.createdAt).toLocaleDateString()}</td>
+      \`;
+      body.appendChild(tr);
+    });
+    
+    table.style.display = 'table';
+    empty.style.display = 'none';
+  } catch (e) {
+    empty.textContent = 'Error: ' + e.message;
+  }
+}
+
+document.getElementById('txSearch').onkeydown = (e) => { if(e.key === 'Enter') searchTx(); };
 
 load();
 setInterval(load, 60000);

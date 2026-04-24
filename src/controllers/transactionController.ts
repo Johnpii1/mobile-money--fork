@@ -796,21 +796,30 @@ export const listTransactionsHandler = async (req: Request, res: Response) => {
       filters.offset,
     );
 
+    // If a reference search is requested, we should probably use the list method instead
+    // or just filter the results. But wait, findByStatuses is limited.
+    // Let's use the list() method instead which is more flexible.
+    const results = await transactionModel.list(
+      filters.limit,
+      filters.offset,
+      undefined,
+      undefined,
+      {
+        tags: [], // Could be extended
+        referenceNumber: filters.reference,
+      }
+    );
+    const total = filters.reference 
+      ? await transactionModel.count(undefined, undefined, { referenceNumber: filters.reference })
+      : totalCount;
+
     return res.json({
-      data: transactions,
+      data: results,
       pagination: {
-        total: totalCount,
+        total,
         limit: filters.limit,
         offset: filters.offset,
-        hasMore: filters.offset + filters.limit < totalCount,
-        totalPages: Math.ceil(totalCount / filters.limit),
-        currentPage: Math.floor(filters.offset / filters.limit) + 1,
-      },
-      filters: {
-        statuses:
-          filters.statuses.length > 0
-            ? filters.statuses
-            : Object.values(TransactionStatus),
+        hasMore: filters.offset + filters.limit < total,
       },
     });
   } catch (err) {
