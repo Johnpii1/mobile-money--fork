@@ -18,10 +18,6 @@ import {
 } from "../config/providers";
 import type { TransactionJobData } from "../queue/transactionQueue";
 import { amlService } from "../services/aml";
-    const {
-      before,
-      after,
-    } = req.query;
 import { travelRuleService } from "../compliance/travelRule";
 import {
   CancelTransactionResponse,
@@ -86,8 +82,6 @@ export const transactionSchema = z.object({
     .max(256, { message: "Note cannot exceed 256 characters" })
     .optional(),
 });
-    const before = req.query.before as string | undefined;
-    const after = req.query.after as string | undefined;
 
 export const validateTransaction = (
   req: Request,
