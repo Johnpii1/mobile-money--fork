@@ -61,9 +61,9 @@ describe("redact — flat object with sensitive keys", () => {
   it("replaces sensitive field values with REDACTED", () => {
     const input = {
       username: "alice",
-      password: "super-secret-123",
+      password: "test-value-not-real",
       email: "alice@example.com",
-      token: "eyJhbGciOiJIUzI1NiJ9.payload.sig",
+      token: "test.jwt.token",
     };
 
     const result = redact(input) as typeof input;
@@ -76,14 +76,14 @@ describe("redact — flat object with sensitive keys", () => {
 
   it("handles all common sensitive field names", () => {
     const input = {
-      apiKey: "key-abc",
-      secret: "my-secret",
-      authorization: "Bearer xyz",
-      pin: "1234",
-      otp: "567890",
+      apiKey: "test-api-key",
+      secret: "test-secret-value",
+      authorization: "Bearer test-token",
+      pin: "0000",
+      otp: "000000",
       mnemonic: "word1 word2 word3",
-      privateKey: "-----BEGIN PRIVATE KEY-----",
-      cookie: "session=abc123",
+      privateKey: "TEST-PRIVATE-KEY-NOT-REAL",
+      cookie: "session=test-session",
     };
 
     const result = redact(input) as Record<string, unknown>;
@@ -112,8 +112,8 @@ describe("redact — deeply nested objects", () => {
       user: {
         id: "u-1",
         loginInfo: {
-          password: "hunter2",
-          token: "tok-abc",
+          password: "test-value-not-real",
+          token: "tok-test",
         },
         profile: {
           name: "Alice",
@@ -138,7 +138,7 @@ describe("redact — deeply nested objects", () => {
   it("redacts the entire value when the container key is itself sensitive (e.g. credentials)", () => {
     const input = {
       user: {
-        credentials: { password: "hunter2", token: "tok-abc" },
+        credentials: { password: "test-value-not-real", token: "tok-test" },
       },
     };
     const result = redact(input) as { user: { credentials: unknown } };
@@ -148,7 +148,7 @@ describe("redact — deeply nested objects", () => {
   });
 
   it("handles triple-nested sensitive fields", () => {
-    const input = { a: { b: { c: { apiKey: "secret-key" } } } };
+    const input = { a: { b: { c: { apiKey: "test-api-key" } } } };
     const result = redact(input) as typeof input;
     expect(result.a.b.c.apiKey).toBe(REDACTED);
   });
@@ -174,7 +174,7 @@ describe("redact — arrays containing sensitive objects", () => {
   });
 
   it("handles nested arrays", () => {
-    const input = { items: [{ password: "pw1" }, { password: "pw2" }] };
+    const input = { items: [{ password: "pw-test-1" }, { password: "pw-test-2" }] };
     const result = redact(input) as typeof input;
     expect(result.items[0].password).toBe(REDACTED);
     expect(result.items[1].password).toBe(REDACTED);
@@ -192,7 +192,7 @@ describe("redact — arrays containing sensitive objects", () => {
 
 describe("redact — stringified JSON as a field value", () => {
   it("parses and redacts stringified JSON objects", () => {
-    const inner = JSON.stringify({ password: "pw", user: "alice" });
+    const inner = JSON.stringify({ password: "pw-test", user: "alice" });
     const input = { payload: inner };
 
     const result = redact(input) as { payload: string };
@@ -229,7 +229,7 @@ describe("redact — Error objects", () => {
       token?: string;
       statusCode?: number;
     };
-    err.token = "leaked-token";
+    err.token = "test-token-not-real";
     err.statusCode = 500;
 
     const result = redact(err) as Record<string, unknown>;
@@ -253,21 +253,21 @@ describe("redact — Error objects", () => {
 
 describe("redact — original objects are never mutated", () => {
   it("does not mutate a flat object", () => {
-    const input = { password: "secret", name: "Alice" };
+    const input = { password: "test-value-not-real", name: "Alice" };
     const copy = { ...input };
     redact(input);
     expect(input).toEqual(copy);
   });
 
   it("does not mutate a nested object", () => {
-    const input = { user: { token: "tok", id: "1" } };
+    const input = { user: { token: "tok-test", id: "1" } };
     const originalToken = input.user.token;
     redact(input);
     expect(input.user.token).toBe(originalToken);
   });
 
   it("does not mutate array elements", () => {
-    const input = [{ apiKey: "key-1" }, { apiKey: "key-2" }];
+    const input = [{ apiKey: "key-test-1" }, { apiKey: "key-test-2" }];
     const originals = input.map((i) => i.apiKey);
     redact(input);
     input.forEach((item, idx) => {
@@ -315,9 +315,9 @@ describe("redact — HTTP headers", () => {
   it("redacts Authorization, Cookie, and X-Api-Key headers", () => {
     const headers = {
       "content-type": "application/json",
-      authorization: "Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig",
-      cookie: "session=abc123; csrf=xyz",
-      "x-api-key": "api-key-value",
+      authorization: "Bearer test-token-not-real",
+      cookie: "session=test-session; csrf=test-csrf",
+      "x-api-key": "test-api-key-not-real",
       "x-request-id": "req-001",
     };
 

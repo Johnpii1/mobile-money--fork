@@ -11,6 +11,9 @@
  * We drive the pipeline at the same level the logger does:
  *   buildStructuredLogEntry  →  redact  →  JSON.stringify
  * so the assertions reflect exactly what would be written to stdout/file.
+ *
+ * NOTE: All credential-like strings in this file are intentionally fake
+ * test placeholders — they are not real secrets.
  */
 
 import { buildStructuredLogEntry } from "../../services/structuredLogger";
@@ -34,7 +37,7 @@ function pipeline(
 
 describe("smoke — sensitive body fields are redacted in log output", () => {
   it("redacts password and token from a logged request body", () => {
-    const body = { username: "alice", password: "supersecret", token: "abc123" };
+    const body = { username: "alice", password: "test-value-not-real", token: "test-token-not-real" };
     const log = pipeline("info", { event: "user.login", body });
 
     const loggedBody = (log as any).body as Record<string, unknown>;
@@ -44,7 +47,7 @@ describe("smoke — sensitive body fields are redacted in log output", () => {
   });
 
   it("redacts apiKey and secret from a logged payload", () => {
-    const payload = { apiKey: "key-abc-123", secret: "my-secret-value", amount: 500 };
+    const payload = { apiKey: "test-api-key-not-real", secret: "test-secret-not-real", amount: 500 };
     const log = pipeline("info", { event: "api.call", payload });
 
     const loggedPayload = (log as any).payload as Record<string, unknown>;
@@ -57,7 +60,7 @@ describe("smoke — sensitive body fields are redacted in log output", () => {
     const data = {
       user: {
         id: "u-1",
-        loginInfo: { password: "hunter2", refreshToken: "rt-xyz" },
+        loginInfo: { password: "test-value-not-real", refreshToken: "rt-test-not-real" },
       },
     };
     const log = pipeline("info", { event: "debug.dump", data });
@@ -83,7 +86,7 @@ describe("smoke — sensitive body fields are redacted in log output", () => {
   });
 
   it("redacts a stringified-JSON body field", () => {
-    const rawBody = JSON.stringify({ password: "pw123", user: "bob" });
+    const rawBody = JSON.stringify({ password: "pw-test-not-real", user: "bob" });
     const log = pipeline("info", { event: "raw.body", rawBody });
 
     const loggedRaw = (log as any).rawBody as string;
@@ -101,7 +104,7 @@ describe("smoke — sensitive HTTP headers are redacted", () => {
   it("redacts Authorization header", () => {
     const headers = {
       "content-type": "application/json",
-      authorization: "Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig",
+      authorization: "Bearer test-token-not-real",
       "x-request-id": "req-001",
     };
     const log = pipeline("info", { event: "http.request", headers });
@@ -115,7 +118,7 @@ describe("smoke — sensitive HTTP headers are redacted", () => {
   it("redacts Cookie header", () => {
     const headers = {
       "content-type": "application/json",
-      cookie: "session=abc123; csrf=xyz",
+      cookie: "session=test-session; csrf=test-csrf",
     };
     const log = pipeline("info", { event: "http.request", headers });
 
@@ -125,8 +128,8 @@ describe("smoke — sensitive HTTP headers are redacted", () => {
   });
 
   it("redacts X-Api-Key header (case-insensitive)", () => {
-    const headersLower = { "x-api-key": "api-key-value", host: "api.example.com" };
-    const headersUpper = { "X-Api-Key": "api-key-value", host: "api.example.com" };
+    const headersLower = { "x-api-key": "test-api-key-not-real", host: "api.example.com" };
+    const headersUpper = { "X-Api-Key": "test-api-key-not-real", host: "api.example.com" };
 
     const logLower = pipeline("info", { event: "http.request", headers: headersLower });
     const logUpper = pipeline("info", { event: "http.request", headers: headersUpper });
@@ -139,9 +142,9 @@ describe("smoke — sensitive HTTP headers are redacted", () => {
   it("redacts all three sensitive headers simultaneously", () => {
     const headers = {
       "content-type": "application/json",
-      authorization: "Bearer tok",
-      cookie: "session=s1",
-      "x-api-key": "k1",
+      authorization: "Bearer test-token-not-real",
+      cookie: "session=test-session",
+      "x-api-key": "test-api-key-not-real",
       "x-request-id": "req-002",
     };
     const log = pipeline("info", { event: "http.request", headers });
@@ -167,7 +170,7 @@ describe("smoke — sensitive HTTP headers are redacted", () => {
 describe("smoke — error objects with sensitive content are scrubbed", () => {
   it("redacts a token attached to a thrown Error", () => {
     const err = new Error("Auth failed") as Error & { token?: string };
-    err.token = "leaked-bearer-token";
+    err.token = "test-token-not-real";
 
     // Pass as a plain object field so buildMergedEntry spreads it into merged
     const log = pipeline("error", { event: "auth.error", err });
@@ -180,7 +183,7 @@ describe("smoke — error objects with sensitive content are scrubbed", () => {
 
   it("redacts an apiKey attached to a thrown Error", () => {
     const err = new Error("Invalid key") as Error & { apiKey?: string };
-    err.apiKey = "sk-live-supersecret";
+    err.apiKey = "test-api-key-not-real";
 
     const log = pipeline("error", { event: "api.error", err });
 
@@ -193,7 +196,7 @@ describe("smoke — error objects with sensitive content are scrubbed", () => {
     const err = new Error("Login failed") as Error & {
       details?: Record<string, unknown>;
     };
-    err.details = { attempted_password: "hunter2", username: "alice" };
+    err.details = { attempted_password: "test-value-not-real", username: "alice" };
 
     const log = pipeline("error", { event: "login.error", err });
 
@@ -280,7 +283,7 @@ describe("smoke — non-sensitive data is not altered", () => {
 
 describe("smoke — original objects are not mutated through the pipeline", () => {
   it("does not mutate a body object passed to the logger", () => {
-    const body = { password: "supersecret", username: "alice" };
+    const body = { password: "test-value-not-real", username: "alice" };
     const originalPassword = body.password;
 
     pipeline("info", { event: "login", body });
@@ -289,7 +292,7 @@ describe("smoke — original objects are not mutated through the pipeline", () =
   });
 
   it("does not mutate a headers object passed to the logger", () => {
-    const headers = { authorization: "Bearer tok", "content-type": "application/json" };
+    const headers = { authorization: "Bearer test-token-not-real", "content-type": "application/json" };
     const originalAuth = headers.authorization;
 
     pipeline("info", { event: "http.request", headers });
