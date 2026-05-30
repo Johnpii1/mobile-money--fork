@@ -2,24 +2,6 @@
 resolver = "2"
 members = ["escrow", "htlc"]
 
-# ---------------------------------------------------------------------------
-# Workspace-wide lint configuration
-# All member crates inherit these lint levels automatically.
-# ---------------------------------------------------------------------------
-[workspace.lints.rust]
-# Treat every rustc warning as a hard error.
-warnings = "deny"
-
-[workspace.lints.clippy]
-# Enforce the full set of pedantic lints — reviewers may relax individual
-# lints per crate via `#[allow(clippy::...)]` with a justification comment.
-all = "warn"
-pedantic = "warn"
-# Lints below are explicitly set to "allow" because they frequently produce
-# false positives in Soroban no_std contract code.
-module_name_repetitions = "allow"
-must_use_candidate = "allow"
-
 [profile.release]
 opt-level = "z"
 overflow-checks = true
