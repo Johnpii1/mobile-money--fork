@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { Pool } from "pg";
 import { z } from "zod";
 import crypto from "crypto";
+import { getNetworkPassphrase } from "../config/stellar";
 
 // ── Validation Schema ────────────────────────────────────────────────────────
 
@@ -161,13 +162,9 @@ export function createFederationRouter(db: Pool): Router {
 // ── TOML Helper ──────────────────────────────────────────────────────────────
 
 export function buildStellarToml(): string {
-  const network = process.env.STELLAR_NETWORK || "testnet";
-  const isMainnet = network === "mainnet";
-  const passphrase = isMainnet
-    ? "Public Global Stellar Network ; September 2015"
-    : "Test SDF Network ; September 2015";
+  const passphrase = getNetworkPassphrase();
   const domain = process.env.STELLAR_FEDERATION_DOMAIN || "mobilemoney.com";
-  
+
   return [
     `FEDERATION_SERVER="https://${domain}/federation"`,
     `NETWORK_PASSPHRASE="${passphrase}"`

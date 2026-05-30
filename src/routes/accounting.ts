@@ -8,6 +8,7 @@ import {
   consumeXeroOAuthState,
 } from "../services/xeroOauthState";
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
 const accountingService = new AccountingService();
@@ -18,9 +19,10 @@ const XERO_SUCCESS_REDIRECT_URL = process.env.XERO_SUCCESS_REDIRECT_URL || "";
 const XERO_FAILURE_REDIRECT_URL = process.env.XERO_FAILURE_REDIRECT_URL || "";
 
 // Validation schemas
-const connectQuickBooksSchema = z.object({
+const connectQuickBooksCallbackSchema = z.object({
   code: z.string(),
   realmId: z.string(),
+  state: z.string(),
 });
 
 const connectXeroSchema = z.object({
@@ -167,6 +169,19 @@ router.get(
 
 // Get authorization URLs
 router.get(
+  "/quickbooks/auth",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const state = uuidv4();
+      const authUrl = accountingService.getQuickBooksAuthUrl(state);
+      res.redirect(authUrl);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
   "/auth/quickbooks/url",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -190,45 +205,21 @@ router.get(
   },
 );
 
-// Handle OAuth callbacks
-router.post(
-  "/auth/quickbooks/callback",
-  validateRequest(connectQuickBooksSchema),
+// Handle QuickBooks OAuth callback
+router.get(
+  "/quickbooks/callback",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { code, realmId } = req.body;
+      const { code, realmId, state } = req.query as {
+        code: string;
+        realmId: string;
+        state: string;
+      };
       const userId = (req as any).user.id;
 
       const connection = await accountingService.handleQuickBooksCallback(
         code,
         realmId,
-        userId,
-      );
-
-      res.status(201).json({
-        connection: {
-          id: connection.id,
-          provider: connection.provider,
-          isActive: connection.isActive,
-          createdAt: connection.createdAt,
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-router.post(
-  "/auth/xero/callback",
-  validateRequest(connectXeroSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { code } = req.body;
-      const userId = (req as any).user.id;
-
-      const connection = await accountingService.handleXeroCallback(
-        code,
         userId,
       );
 
