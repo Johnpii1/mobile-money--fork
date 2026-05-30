@@ -165,4 +165,11 @@ export function startJobs(): void {
     cron.schedule(job.schedule, () => runJob(job));
     console.log(`[scheduler] "${job.name}" scheduled - ${job.schedule}`);
   }
+
+  // Start the notification worker which listens for Redis pub/sub events
+  // and drives user-facing notifications in real-time. This replaces any
+  // DB-polling notification mechanisms.
+  startNotificationWorker().catch((err) => {
+    console.warn("Failed to start NotificationWorker:", err);
+  });
 }
