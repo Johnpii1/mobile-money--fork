@@ -103,7 +103,7 @@ import { startApolloServer } from "./graphql/server";
 dotenv.config();
 
 if (process.env.SENTRY_DSN) {
-  initSentry(process.env.SENTRY_DSN);
+  initSentry(process.env.SENTRY_DSN, process.env.SENTRY_RELEASE);
 }
 
 validateStellarNetwork();
