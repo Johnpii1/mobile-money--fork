@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import * as fs from "fs";
-import * as path from "path";
+
 import logger from "../../../utils/logger";
 import { maskPII } from "../../../utils/masking";
 import { Browser, BrowserContext, Page, chromium } from "playwright";
@@ -855,38 +854,18 @@ export class OrangeProvider {
   }
 
   private loadSession(): OrangeSessionState | null {
-    if (!this.config.sessionStorePath) {
-      return null;
-    }
-
-    try {
-      if (!fs.existsSync(this.config.sessionStorePath)) {
-        return null;
-      }
-
-      const raw = fs.readFileSync(this.config.sessionStorePath, "utf8");
-      const parsed = JSON.parse(raw) as OrangeSessionState;
-
-      if (!parsed.cookies || !parsed.expiresAt || this.isExpired(parsed)) {
-        return null;
-      }
-
-      return parsed;
-    } catch {
-      return null;
-    }
+    // Session tokens must not be read from the local filesystem.
+    // The in-memory this.session is the authoritative cache; a fresh
+    // login will be performed when it is absent or expired.
+    return null;
   }
 
-  private persistSession(session: OrangeSessionState): void {
-    if (!this.config.sessionStorePath) {
-      return;
-    }
-
-    const dir = path.dirname(this.config.sessionStorePath);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(this.config.sessionStorePath, JSON.stringify(session), {
-      mode: 0o600,
-    });
+  private persistSession(_session: OrangeSessionState): void {
+    // Session tokens contain sensitive authentication credentials.
+    // Writing them to the local filesystem (sessionStorePath) would create
+    // unencrypted secrets on disk, violating the memory-only security policy.
+    // The session is already held in memory via this.session; for cross-process
+    // persistence use an encrypted store such as Redis instead.
   }
 
   private serializeCookies(session: OrangeSessionState): string {
