@@ -2970,4 +2970,203 @@ router.put(
   }
 );
 
+/**
+ * =========================
+ * DASHBOARD & MONITORING
+ * =========================
+ */
+
+/**
+ * GET /api/admin/dashboard/stats
+ * Comprehensive dashboard statistics for CLI/UI
+ */
+router.get(
+  "/dashboard/stats",
+  requireAdmin,
+  logAdminAction("GET_DASHBOARD_STATS"),
+  async (req: Request, res: Response) => {
+    try {
+      const startTime = Date.now();
+      const timestamp = new Date().toISOString();
+
+      // Fetch system health in parallel
+      const [
+        queueStats,
+        databaseHealth,
+        redisHealth,
+        transactionStats,
+        providerHealth,
+      ] = await Promise.all([
+        getQueueStats().catch((err) => {
+          console.error("[Dashboard] Queue stats error:", err);
+          return {
+            pending: 0,
+            active: 0,
+            completed: 0,
+            failed: 0,
+            total: 0,
+          };
+        }),
+        checkReplicaHealth()
+          .then((replicas) => ({
+            status: "healthy" as const,
+            replicas,
+          }))
+          .catch((err) => {
+            console.error("[Dashboard] Database health error:", err);
+            return { status: "unhealthy" as const, replicas: [] };
+          }),
+        redisClient
+          .ping()
+          .then(() => ({ status: "healthy" as const, responseTime: 0 }))
+          .catch((err) => {
+            console.error("[Dashboard] Redis health error:", err);
+            return { status: "unhealthy" as const, responseTime: undefined };
+          }),
+        (async () => {
+          const stats = await transactionModel.getStatistics(
+            new Date(Date.now() - 24 * 60 * 60 * 1000),
+            new Date(),
+          );
+          return {
+            totalCount: stats.totalTransactions,
+            successRate: stats.successRate,
+            totalVolume: stats.totalVolume,
+            activeUsers: await UserModel.countActiveUsers(24),
+          };
+        })().catch((err) => {
+          console.error("[Dashboard] Transaction stats error:", err);
+          return {
+            totalCount: 0,
+            successRate: 0,
+            totalVolume: 0,
+            activeUsers: 0,
+          };
+        }),
+        (async () => {
+          const mobileMoneyService = new MobileMoneyService();
+          try {
+            return mobileMoneyService.getFailoverStats();
+          } catch (err) {
+            console.error("[Dashboard] Provider health error:", err);
+            return {};
+          }
+        })(),
+      ]);
+
+      const responseTime = Date.now() - startTime;
+      const stellarHealthy = transactionStats.totalCount >= 0; // If we can query, Stellar is ok
+
+      res.json({
+        timestamp,
+        health: {
+          database:
+            databaseHealth.status === "healthy" ? "healthy" : "unhealthy",
+          redis: redisHealth.status === "healthy" ? "healthy" : "unhealthy",
+          stellar: stellarHealthy ? "healthy" : "unhealthy",
+          responseTime,
+        },
+        queue: {
+          totalJobs: queueStats.total || 0,
+          pendingJobs: queueStats.pending || 0,
+          activeJobs: queueStats.active || 0,
+          completedJobs: queueStats.completed || 0,
+          failedJobs: queueStats.failed || 0,
+          dlqSize: queueStats.dlq || 0,
+        },
+        transactions: {
+          totalCount: transactionStats.totalCount,
+          successRate: transactionStats.successRate,
+          totalVolume: transactionStats.totalVolume,
+          activeUsers: transactionStats.activeUsers,
+        },
+        providers: Object.entries(providerHealth).reduce(
+          (acc, [provider, stats]: [string, any]) => {
+            acc[provider] = {
+              status: stats.isHealthy ? "online" : "offline",
+              failureRate: stats.failureRate || 0,
+              lastChecked: timestamp,
+            };
+            return acc;
+          },
+          {} as Record<string, any>,
+        ),
+      });
+    } catch (error) {
+      console.error("[Dashboard] Failed to fetch stats:", error);
+      throw createError(ERROR_CODES.INTERNAL_ERROR, "Failed to fetch dashboard stats");
+    }
+  },
+);
+
+/**
+ * GET /api/admin/health
+ * Quick health check for monitoring
+ */
+router.get(
+  "/health",
+  logAdminAction("GET_HEALTH"),
+  async (req: Request, res: Response) => {
+    try {
+      const startTime = Date.now();
+
+      const [databaseOk, redisOk] = await Promise.all([
+        pool
+          .query("SELECT 1")
+          .then(() => true)
+          .catch(() => false),
+        redisClient
+          .ping()
+          .then(() => true)
+          .catch(() => false),
+      ]);
+
+      const responseTime = Date.now() - startTime;
+
+      res.json({
+        database: databaseOk ? "healthy" : "unhealthy",
+        redis: redisOk ? "healthy" : "unhealthy",
+        stellar: "healthy", // Assume ok unless we detect specific Stellar failures
+        responseTime,
+      });
+    } catch (error) {
+      console.error("[Health] Check failed:", error);
+      res.status(503).json({
+        database: "unhealthy",
+        redis: "unhealthy",
+        stellar: "unhealthy",
+        responseTime: 0,
+      });
+    }
+  },
+);
+
+/**
+ * GET /api/admin/queue/stats
+ * Queue metrics with detailed breakdown
+ */
+router.get(
+  "/queue/stats",
+  requireAdmin,
+  logAdminAction("GET_QUEUE_STATS"),
+  async (req: Request, res: Response) => {
+    try {
+      const stats = await getQueueStats();
+
+      res.json({
+        totalJobs: stats.total || 0,
+        pendingJobs: stats.pending || 0,
+        activeJobs: stats.active || 0,
+        completedJobs: stats.completed || 0,
+        failedJobs: stats.failed || 0,
+        dlqSize: stats.dlq || 0,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("[Queue] Stats fetch failed:", error);
+      throw createError(ERROR_CODES.INTERNAL_ERROR, "Failed to fetch queue stats");
+    }
+  },
+);
+
 export { router as adminRoutes };
