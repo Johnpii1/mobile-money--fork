@@ -55,11 +55,24 @@ jobs:
             npm install --package-lock-only
           fi
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvips-dev libjpeg-dev libpng-dev libtiff-dev libgif-dev librsvg2-dev libpoppler-cpp-dev libcairo2-dev libpango1.0-dev libjpeg8-dev build-essential
+
       - name: Install dependencies
         run: npm ci
 
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -p 5432 -U test_user && break
+            echo "Waiting for Postgres... attempt $i/30"
+            sleep 1
+          done
+
       - name: Run database migrations
-        run: npm run migrate:up
+        run: npm run migrate:up 2>&1
         continue-on-error: true
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -67,7 +80,7 @@ jobs:
       - name: Run tests with coverage
         id: coverage
         run: |
-          npm run test:coverage -- --coverageReporters=json-summary --coverageReporters=text --coverageReporters=lcov --maxWorkers=2 --forceExit 2>&1 | tee coverage-output.txt
+          npm run test:coverage -- --coverageReporters=json-summary --coverageReporters=text --coverageReporters=lcov --maxWorkers=2 --bail --forceExit 2>&1 | tee coverage-output.txt
           EXIT_CODE=${PIPESTATUS[0]}
           echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
           exit $EXIT_CODE
