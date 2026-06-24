@@ -6,6 +6,7 @@ import { transactionTotal, transactionErrorsTotal } from "../../utils/metrics";
 import { AssetService, getConfiguredPaymentAsset } from "./assetService";
 import { sanctionService } from "../sanctionService";
 import { resolveToBaseAddress } from "../../stellar/muxed";
+import { assertStrictStellarGAddress } from "../../utils/stellarAddressValidator";
 
 dotenv.config();
 
@@ -279,6 +280,8 @@ export class StellarService {
   }
 
   async getBalance(address: string): Promise<string> {
+    assertStrictStellarGAddress(address, "address");
+
     try {
       const asset = getConfiguredPaymentAsset();
       // MOCK MODE
@@ -443,9 +446,7 @@ export class StellarService {
     adminId?: string,
   ): Promise<{ hash?: string }> {
     // Validate inputs
-    if (!fromAddress || fromAddress.length < 56) {
-      throw new Error("Invalid destination address format");
-    }
+    assertStrictStellarGAddress(fromAddress, "fromAddress");
     if (parseFloat(amount) <= 0) {
       throw new Error("Clawback amount must be positive");
     }
