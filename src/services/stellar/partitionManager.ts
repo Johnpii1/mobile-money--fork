@@ -1,3 +1,4 @@
+import logger from "../../utils/logger";
 import { pool } from "../../config/database.js";
 import cron from "node-cron";
 
@@ -23,10 +24,7 @@ export class PartitionManager {
         `[PartitionManager] Successfully ensured transactions partitions exist for next ${monthsAhead} months.`,
       );
     } catch (error) {
-      console.error(
-        "[PartitionManager] Failed to create future partitions. Ensure the PL/pgSQL function exists.",
-        error,
-      );
+      logger.error("[PartitionManager] Failed to create future partitions. Ensure the PL/pgSQL function exists.", error);
     }
   }
 

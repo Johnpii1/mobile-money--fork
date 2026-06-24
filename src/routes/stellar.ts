@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import { Router, Request, Response } from "express";
 import { sep24RateLimiter as stellarRateLimiter } from "../middleware/rateLimit";
 import NodeCache from "node-cache";
@@ -85,7 +86,7 @@ router.get(
         });
       }
 
-      console.error(error);
+      logger.error(error);
 
       return res.status(500).json({
         error: "Failed to fetch account balance",

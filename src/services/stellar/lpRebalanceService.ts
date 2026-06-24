@@ -1,3 +1,4 @@
+import logger from "../../utils/logger";
 import * as StellarSdk from "stellar-sdk";
 import { getStellarServer, getNetworkPassphrase } from "../../config/stellar";
 
@@ -164,7 +165,7 @@ export async function rebalanceReserves(): Promise<RebalanceResult[]> {
         skipped: false,
       });
     } catch (err) {
-      console.error(`[lp-rebalance] Path payment failed for ${cfg.assetCode}:`, err);
+      logger.error(`[lp-rebalance] Path payment failed for ${cfg.assetCode}:`, err);
       results.push({
         assetCode: cfg.assetCode,
         currentBalance: balance,

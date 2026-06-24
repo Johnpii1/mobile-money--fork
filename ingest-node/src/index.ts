@@ -31,6 +31,7 @@ import { z } from "zod";
 import Redis from "ioredis";
 import { connect as natsConnect, StringCodec, type NatsConnection } from "nats";
 import { Registry, Counter, Histogram, collectDefaultMetrics } from "prom-client";
+import fastifyRateLimit from "@fastify/rate-limit";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -383,6 +384,7 @@ const app = Fastify({
   logger: false,          // disable for benchmark — logging adds latency
   trustProxy: true,
 });
+app.register(fastifyRateLimit, { max: 100, timeWindow: 60000 });
 
 app.post<{ Body: unknown }>("/ingest", async (req, reply) => {
   const requestStart = process.hrtime.bigint();
@@ -446,6 +448,39 @@ app.get("/health", async (_req, reply) => {
 app.get("/metrics", async (_req, reply) => {
   reply.header("Content-Type", register.contentType);
   return reply.send(await register.metrics());
+});
+
+// ---------------------------------------------------------------------------
+// Readiness endpoint – verifies underlying message queues before reporting ready
+// ---------------------------------------------------------------------------
+
+async function checkDependencies(): Promise<boolean> {
+  // Verify Redis connection if enabled
+  if (REDIS_ENABLED && redisPool) {
+    try {
+      await redisPool.executeCommand(async (client) => client.ping());
+    } catch (err) {
+      console.error('[ready] Redis ping failed', err);
+      return false;
+    }
+  }
+  // Verify NATS connection if enabled
+  if (NATS_ENABLED && nats) {
+    if (nats.isClosed()) {
+      console.error('[ready] NATS connection closed');
+      return false;
+    }
+  }
+  return true;
+}
+
+app.get("/ready", async (_req, reply) => {
+  const healthy = await checkDependencies();
+  if (healthy) {
+    return reply.status(200).send({ status: "ready" });
+  } else {
+    return reply.status(503).send({ status: "unavailable" });
+  }
 });
 
 // ---------------------------------------------------------------------------
