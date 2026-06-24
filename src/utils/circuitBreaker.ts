@@ -26,25 +26,10 @@ type BreakerFallback<T> = (
   error: unknown,
 ) => Promise<CircuitBreakerActionResult<T>> | CircuitBreakerActionResult<T>;
 
-/**
- * The runtime `opossum.CircuitBreaker` (pinned to `9.0.0` in
- * `package.json`) exposes a `.toJSON()` method that is not declared
- * in opossum's shipped type definitions (opossum ships only `*.js`
- * with no `.d.ts`, so TypeScript infers the class shape from the
- * JS sources and loses the method). Intersection-injecting the
- * method on our local `ProviderCircuitBreaker<T>` alias makes
- * downstream consumers that serialise a breaker (e.g.
- * `JSON.stringify(breaker)` in structured logging) type-safe
- * without relying on `declare module "opossum"` augmentation,
- * which TypeScript cannot reliably merge into inferred JS
- * class shapes.
- */
 type ProviderCircuitBreaker<T> = CircuitBreaker<
   [BreakerInvocation<T>, BreakerFallback<T> | undefined],
   CircuitBreakerActionResult<T>
-> & {
-  toJSON?: () => unknown;
-};
+>;
 
 const circuitBreakers = new Map<string, ProviderCircuitBreaker<unknown>>();
 
@@ -210,12 +195,12 @@ export async function checkAndResetCircuitBreaker(provider: string, operation: s
   }
 
   // Only reset if open
-  if ((breaker as any).opened) {
+  if (breaker.opened) {
     try {
       const healthResult = await checkMobileMoneyHealth();
       const providerHealth = healthResult.providers[provider as keyof typeof healthResult.providers];
       if (providerHealth && providerHealth.status === "up") {
-        (breaker as any).close();
+        breaker.close();
         console.log(`Circuit breaker for ${provider}:${operation} reset due to health check`);
         return true;
       }
