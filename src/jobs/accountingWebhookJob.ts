@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import { pool } from "../config/database";
 import { AccountingService } from "../services/accounting";
 
@@ -58,7 +59,7 @@ export async function runAccountingWebhookJob(): Promise<void> {
         createdAt: row.created_at,
       });
     } catch (err) {
-      console.error(`[accounting-webhook] Failed to sync transaction ${row.id}:`, err);
+      logger.error(`[accounting-webhook] Failed to sync transaction ${row.id}:`, err);
     }
   }
 }

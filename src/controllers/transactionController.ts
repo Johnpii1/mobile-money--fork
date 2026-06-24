@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import { NextFunction, Request, Response } from "express";
 import { z } from "zod";
 import { StellarService } from "../services/stellar/stellarService";
@@ -251,7 +252,7 @@ export const getTransactionHistoryHandler = async (
       },
     });
   } catch (error) {
-    console.error("History Fetch Error:", error);
+    logger.error("History Fetch Error:", error);
     throw createError(
       ERROR_CODES.INTERNAL_ERROR,
       error instanceof Error ? error.message : "Unknown error",
@@ -362,13 +363,13 @@ async function monitorTransactionForAML(
         },
       });
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to generate flagged transaction compliance PDF for transaction ${transaction.id}:`,
         error,
       );
     }
   } catch (error) {
-    console.error(
+    logger.error(
       `AML monitoring failed for transaction ${transaction.id}:`,
       error,
     );
@@ -413,7 +414,7 @@ async function applyTravelRule(transaction: Transaction): Promise<void> {
     await transactionModel.addTags(transaction.id, ["travel-rule-captured"]);
   } catch (error) {
     // Non-fatal — log and continue; compliance team can back-fill
-    console.error(
+    logger.error(
       `[travel-rule] capture failed for transaction ${transaction.id}:`,
       error instanceof Error ? error.message : error,
     );
@@ -724,7 +725,7 @@ export const getTransactionHandler = async (req: Request, res: Response) => {
     return res.json(body);
   } catch (err) {
     if (err && (err as any).code) throw err;
-    console.error("Failed to fetch transaction:", err);
+    logger.error("Failed to fetch transaction:", err);
     throw createError(
       ERROR_CODES.INTERNAL_ERROR,
       "Failed to fetch transaction",
@@ -780,7 +781,7 @@ export const cancelTransactionHandler = async (req: Request, res: Response) => {
           }),
         });
       } catch (webhookError) {
-        console.error("Webhook notification failed", webhookError);
+        logger.error("Webhook notification failed", webhookError);
       }
     }
 
@@ -792,7 +793,7 @@ export const cancelTransactionHandler = async (req: Request, res: Response) => {
     return res.json(body);
   } catch (err) {
     if (err && (err as any).code) throw err;
-    console.error("Failed to cancel transaction:", err);
+    logger.error("Failed to cancel transaction:", err);
     throw createError(ERROR_CODES.INTERNAL_ERROR, null, {
       error: "Failed to cancel transaction",
     });
@@ -887,7 +888,7 @@ export const refundTransactionHandler = async (req: Request, res: Response) => {
     });
   } catch (err) {
     if (err && (err as any).code) throw err;
-    console.error("Refund error:", err);
+    logger.error("Refund error:", err);
     throw createError(ERROR_CODES.INTERNAL_ERROR, "Failed to process refund", {
       error: "Failed to process refund",
     });
@@ -985,7 +986,7 @@ export const searchTransactionsHandler = async (
     return res.json(body);
   } catch (error) {
     if (error && (error as any).code) throw error;
-    console.error("Phone number search error:", error);
+    logger.error("Phone number search error:", error);
     throw createError(ERROR_CODES.INTERNAL_ERROR, null, {
       error: "Failed to search transactions",
     });
@@ -1036,7 +1037,7 @@ export const listTransactionsHandler = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error("Failed to list transactions:", err);
+    logger.error("Failed to list transactions:", err);
     throw createError(ERROR_CODES.INTERNAL_ERROR, null, {
       error: "Failed to list transactions",
     });
@@ -1085,7 +1086,7 @@ export const listAmlAlertsHandler = async (req: Request, res: Response) => {
         .length,
     });
   } catch (error) {
-    console.error("Failed to list AML alerts:", error);
+    logger.error("Failed to list AML alerts:", error);
     throw createError(ERROR_CODES.INTERNAL_ERROR, null, {
       error: "Failed to list AML alerts",
     });
@@ -1133,7 +1134,7 @@ export const reviewAmlAlertHandler = async (req: Request, res: Response) => {
 
     return res.json(updated);
   } catch (error) {
-    console.error("Failed to review AML alert:", error);
+    logger.error("Failed to review AML alert:", error);
     throw createError(ERROR_CODES.INTERNAL_ERROR, null, {
       error: "Failed to review AML alert",
     });
@@ -1274,7 +1275,7 @@ export const deleteMetadataKeysHandler = async (
     return res.json(transaction);
   } catch (err) {
     if (err && (err as any).code) throw err;
-    console.error("Failed to delete metadata keys:", err);
+    logger.error("Failed to delete metadata keys:", err);
 
     throw createError(
       ERROR_CODES.INTERNAL_ERROR,
@@ -1309,7 +1310,7 @@ export const searchByMetadataHandler = async (req: Request, res: Response) => {
     return res.json({ data: transactions, total: transactions.length });
   } catch (err) {
     if (err && (err as any).code) throw err;
-    console.error("Metadata search error:", err);
+    logger.error("Metadata search error:", err);
     throw createError(
       ERROR_CODES.INTERNAL_ERROR,
       "Failed to search by metadata",

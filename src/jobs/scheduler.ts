@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import cron from "node-cron";
 import { runAccountMergeJob } from "./accountMerge";
 import { runCleanupJob } from "./cleanupJob";
@@ -158,7 +159,7 @@ async function runJob(job: JobConfig): Promise<void> {
     await job.handler();
     console.log(`[${job.name}] Completed`);
   } catch (err) {
-    console.error(`[${job.name}] Failed:`, err);
+    logger.error(`[${job.name}] Failed:`, err);
   }
 }
 
@@ -172,7 +173,7 @@ export function startJobs(): void {
 
   for (const job of JOBS) {
     if (!cron.validate(job.schedule)) {
-      console.error(
+      logger.error(
         `[scheduler] Invalid cron expression for "${job.name}": ${job.schedule}`,
       );
       continue;

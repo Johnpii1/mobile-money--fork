@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import axios, { AxiosInstance } from 'axios';
 import { Pool } from 'pg';
 import { z } from 'zod';
@@ -168,7 +169,7 @@ export class KYCService {
         return response;
       },
       (error) => {
-        console.error(`KYC API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
+        logger.error(`KYC API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
         return Promise.reject(error);
       }
     );
@@ -320,7 +321,7 @@ export class KYCService {
           console.log(`Unhandled webhook event: ${payload.action}`);
       }
     } catch (error) {
-      console.error(`Failed to handle webhook: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(`Failed to handle webhook: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
@@ -346,10 +347,10 @@ export class KYCService {
           await accountingSvc.syncContactForUser(userId);
         }
       } catch (err) {
-        console.error(`Failed to sync accounting contact after KYC update for user ${userId}: ${err instanceof Error ? err.message : String(err)}`);
+        logger.error(`Failed to sync accounting contact after KYC update for user ${userId}: ${err instanceof Error ? err.message : String(err)}`);
       }
     } catch (error) {
-      console.error(`Failed to update user KYC level: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(`Failed to update user KYC level: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
@@ -407,7 +408,7 @@ export class KYCService {
       // For now, we'll store without user_id association
       await this.db.query(query, [applicant.id, null, JSON.stringify(applicant), applicant.created_at]);
     } catch (error) {
-      console.error(`Failed to store applicant reference: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(`Failed to store applicant reference: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // Don't throw here as this is not critical
     }
   }
@@ -477,7 +478,7 @@ export class KYCService {
         await this.updateUserKYCLevel(userId, verificationStatus.level);
       }
     } catch (error) {
-      console.error(`Failed to handle workflow run completion: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(`Failed to handle workflow run completion: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -500,7 +501,7 @@ export class KYCService {
         await this.updateUserKYCLevel(userId, verificationStatus.level);
       }
     } catch (error) {
-      console.error(`Failed to handle check completion: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(`Failed to handle check completion: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }

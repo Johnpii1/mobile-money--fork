@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import { PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getS3Client, s3Config, getS3ObjectUrl } from "../config/s3";
 import { generateUniqueFilename, generateS3Key } from "../middleware/upload";
@@ -58,7 +59,7 @@ export const uploadToS3 = async (
       key,
     };
   } catch {
-    console.error("S3 upload error");
+    logger.error("S3 upload error");
     return {
       success: false,
       error: "Unknown upload error",

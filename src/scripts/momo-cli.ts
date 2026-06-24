@@ -28,11 +28,11 @@ const colors = {
 
 export function printError(message: string, error?: any, code?: string): void {
   const label = code ? `[${code}] ` : "";
-  console.error(
+  printError(
     `\n${colors.red}✗ Error: ${colors.bold}${label}${colors.reset}${colors.red}${message}${colors.reset}\n`,
   );
   if (error && error.message) {
-    console.error(`  ${colors.gray}Details: ${error.message}${colors.reset}\n`);
+    printError(`  ${colors.gray}Details: ${error.message}${colors.reset}\n`);
   }
 }
 

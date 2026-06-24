@@ -1,3 +1,4 @@
+import logger from "./logger";
 import CircuitBreaker, { CircuitBreakerOptions } from "opossum";
 import {
   providerCircuitBreakerState,
@@ -135,7 +136,7 @@ async function getOrCreateCircuitBreaker<T>(
   });
 
   breaker.on("open", () => {
-    console.error(`Circuit breaker opened for ${provider}:${operation} due to high error rate`);
+    logger.error(`Circuit breaker opened for ${provider}:${operation} due to high error rate`);
     emitStateTransitionMetric(provider, operation, "open");
   });
   breaker.on("halfOpen", () => {
@@ -205,7 +206,7 @@ export async function checkAndResetCircuitBreaker(provider: string, operation: s
         return true;
       }
     } catch (error) {
-      console.error(`Failed to check health for ${provider}: ${error}`);
+      logger.error(`Failed to check health for ${provider}: ${error}`);
     }
   }
   return false;

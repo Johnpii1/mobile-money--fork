@@ -1,3 +1,4 @@
+import logger from "./logger";
 import Redlock, { Lock, Settings } from "redlock";
 import { redisClient } from "../config/redis";
 
@@ -33,7 +34,7 @@ class LockManager {
     this.redlock = new Redlock([redisClient as any], settings);
 
     this.redlock.on("error", (error) => {
-      console.error("Redlock error:", error);
+      logger.error("Redlock error:", error);
     });
   }
 
@@ -57,7 +58,7 @@ class LockManager {
       console.log(`Lock acquired: ${resource} (TTL: ${ttl}ms)`);
       return lock;
     } catch (error) {
-      console.error(`Failed to acquire lock: ${resource}`, error);
+      logger.error(`Failed to acquire lock: ${resource}`, error);
       throw new Error(`Unable to acquire lock for resource: ${resource}`);
     }
   }
@@ -75,7 +76,7 @@ class LockManager {
       await lock.release();
       console.log(`Lock released: ${lock.resources}`);
     } catch (error) {
-      console.error("Failed to release lock:", error);
+      logger.error("Failed to release lock:", error);
       throw error;
     }
   }
@@ -93,7 +94,7 @@ class LockManager {
       console.log(`Lock extended: ${lock.resources} (+${ttl}ms)`);
       return extendedLock;
     } catch (error) {
-      console.error("Failed to extend lock:", error);
+      logger.error("Failed to extend lock:", error);
       throw error;
     }
   }

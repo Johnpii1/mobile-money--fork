@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import { Worker, Job } from "bullmq";
 import { queueOptions } from "./config";
 import { SyncJobData, SyncJobResult, SYNC_QUEUE_NAME } from "./syncQueue";
@@ -50,14 +51,14 @@ export async function processSyncJob(
       throw error;
     } else {
       // Permanent error (e.g. ValidationError). Discard further attempts so BullMQ doesn't retry this job.
-      console.error(
+      logger.error(
         `[SyncWorker] [Job ${job.id}] Permanent error encountered during ${platform} sync: ${message}. Discarding future attempts.`,
       );
 
       try {
         await job.discard();
       } catch (discardErr) {
-        console.error(
+        logger.error(
           `[SyncWorker] Failed to discard job ${job.id}`,
           discardErr,
         );

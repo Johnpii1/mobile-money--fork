@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import crypto from "node:crypto";
 import { PassThrough } from "node:stream";
 import archiver from "archiver";
@@ -145,7 +146,7 @@ export class GDPRService {
       // Disable/deactivate user account
       await this.deactivateUserAccount(userId);
     } catch (err) {
-      console.error("Erasure error:", err);
+      logger.error("Erasure error:", err);
       throw err;
     }
   }
@@ -178,7 +179,7 @@ export class GDPRService {
         await this.purgeUserData(row.id);
         usersPurged++;
       } catch (err) {
-        console.error(`[GDPR] Failed to purge expired user ${row.id}:`, err);
+        logger.error(`[GDPR] Failed to purge expired user ${row.id}:`, err);
       }
     }
 
@@ -203,7 +204,7 @@ export class GDPRService {
         );
         transactionsAnonymized++;
       } catch (err) {
-        console.error(
+        logger.error(
           `[GDPR] Failed to anonymize expired transaction ${row.id}:`,
           err,
         );
@@ -240,7 +241,7 @@ export class GDPRService {
         }
       }
     } catch (err) {
-      console.error("S3 deletion error for user", userId, err);
+      logger.error("S3 deletion error for user", userId, err);
     }
   }
 

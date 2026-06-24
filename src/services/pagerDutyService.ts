@@ -1,3 +1,4 @@
+import logger from "../utils/logger";
 import axios, { AxiosInstance } from "axios";
 
 export interface PagerDutyConfig {
@@ -65,7 +66,7 @@ export class PagerDutyService {
 
     this.checkInterval = setInterval(() => {
       this.evaluateErrorRates().catch((error) => {
-        console.error("Error in PagerDuty evaluation cycle:", error);
+        logger.error("Error in PagerDuty evaluation cycle:", error);
       });
     }, PagerDutyService.CHECK_INTERVAL_MS);
 
@@ -235,7 +236,7 @@ export class PagerDutyService {
         );
       }
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to trigger PagerDuty incident for provider ${provider}:`,
         error,
       );
@@ -267,7 +268,7 @@ export class PagerDutyService {
         );
       }
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to resolve PagerDuty incident for provider ${provider}:`,
         error,
       );
