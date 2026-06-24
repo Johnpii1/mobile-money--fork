@@ -1,4 +1,5 @@
 import { PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import crypto from "crypto";
 import { getS3Client, s3Config, getS3ObjectUrl } from "../config/s3";
 import { generateUniqueFilename, generateS3Key } from "../middleware/upload";
 import { KmsFileSigner, createFileSignerFromEnv, FileSignature } from "./stellar/hsmService";
@@ -69,12 +70,27 @@ export const uploadToS3 = async (
     }
 
     // Prepare upload command
+    // Generate a random 256-bit (32-byte) key for SSE-C encryption
+    const sseKey = crypto.randomBytes(32);
+    const sseKeyBase64 = sseKey.toString('base64');
+    const sseKeyMD5 = crypto.createHash('md5').update(sseKey).digest('base64');
+
     const command = new PutObjectCommand({
       Bucket: s3Config.bucket,
       Key: key,
       Body: file.buffer,
       ContentType: file.mimetype,
-      Metadata: s3Metadata,
+      Metadata: {
+        originalName: file.originalname,
+        uploadedBy: userId,
+        uploadedAt: new Date().toISOString(),
+        ...metadata,
+      },
+      SSECustomerAlgorithm: 'AES256',
+      SSECustomerKey: sseKeyBase64,
+      SSECustomerKeyMD5: sseKeyMD5,
+      // Set appropriate ACL (private by default)
+      // ACL: 'private',
     });
 
     // Upload to S3
